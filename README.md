@@ -11,7 +11,7 @@ pip install llm-think-tag-strip-py
 ## Usage
 
 ```python
-from llm_think_tag_strip import strip, strip_tags, extract_thinking, has_thinking
+from llm_think_tag_strip import strip, strip_tags, extract_thinking, has_thinking, split_thinking
 
 response = "<thinking>Let me reason...</thinking>The answer is 42."
 

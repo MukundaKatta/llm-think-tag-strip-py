@@ -14,9 +14,9 @@ _DEFAULT_TAGS = ["thinking", "reasoning", "scratchpad", "reflection", "thought"]
 class StripResult:
     """Result of stripping tags from text."""
 
-    text: str           # cleaned text
-    stripped: list[str] # content that was inside tags
-    tag_count: int      # number of tag blocks removed
+    text: str  # cleaned text
+    stripped: list[str]  # content that was inside tags
+    tag_count: int  # number of tag blocks removed
 
     @property
     def had_thinking(self) -> bool:
@@ -52,13 +52,17 @@ def strip_tags(
     stripped_blocks: list[str] = []
     cleaned = text
 
-    for tag in tags:
+    if tags:
+        # Match any of the given tags in a single pass so that the extracted
+        # blocks are returned in document order (not grouped by tag name).
+        # The trailing (?=[\s/>]) ensures we only match whole tag names, so
+        # ``thinking`` does not also match ``<thinkingx>``.
+        names = "|".join(re.escape(tag) for tag in tags)
         pattern = re.compile(
-            rf"<{re.escape(tag)}[^>]*>(.*?)</{re.escape(tag)}>",
+            rf"<(?:{names})(?=[\s/>])[^>]*>(.*?)</(?:{names})\s*>",
             re.DOTALL | re.IGNORECASE,
         )
-        matches = pattern.findall(cleaned)
-        stripped_blocks.extend(m.strip() for m in matches)
+        stripped_blocks = [m.strip() for m in pattern.findall(cleaned)]
         cleaned = pattern.sub("", cleaned)
 
     if not keep_newlines:
@@ -89,7 +93,7 @@ def has_thinking(text: str, tags: list[str] | None = None) -> bool:
     if tags is None:
         tags = _DEFAULT_TAGS
     for tag in tags:
-        if re.search(rf"<{re.escape(tag)}[^>]*>", text, re.IGNORECASE):
+        if re.search(rf"<{re.escape(tag)}(?=[\s/>])[^>]*>", text, re.IGNORECASE):
             return True
     return False
 
@@ -105,4 +109,11 @@ def split_thinking(text: str, tags: list[str] | None = None) -> tuple[list[str],
     return result.stripped, result.text
 
 
-__all__ = ["strip", "strip_tags", "extract_thinking", "has_thinking", "split_thinking", "StripResult"]
+__all__ = [
+    "strip",
+    "strip_tags",
+    "extract_thinking",
+    "has_thinking",
+    "split_thinking",
+    "StripResult",
+]

@@ -1,6 +1,13 @@
 """Tests for llm-think-tag-strip-py."""
-import pytest
-from llm_think_tag_strip import strip, strip_tags, extract_thinking, has_thinking, split_thinking, StripResult
+
+from llm_think_tag_strip import (
+    strip,
+    strip_tags,
+    extract_thinking,
+    has_thinking,
+    split_thinking,
+    StripResult,
+)
 
 
 def test_strip_basic():
@@ -120,3 +127,40 @@ def test_strip_keeps_whitespace_option():
     text = "<thinking>think</thinking>\n\nAnswer."
     result = strip_tags(text, keep_newlines=True)
     assert "Answer" in result.text
+
+
+def test_strip_mixed_tags_preserve_document_order():
+    # Blocks must come back in the order they appear in the text, even when
+    # different default tag names are interleaved.
+    text = "<reasoning>FIRST</reasoning> mid <thinking>SECOND</thinking>"
+    result = strip_tags(text)
+    assert result.stripped == ["FIRST", "SECOND"]
+    assert result.tag_count == 2
+    assert result.text == "mid"
+
+
+def test_strip_does_not_match_similar_tag_names():
+    # "thinking" must not match "<thinkingx>"; that tag should be left intact.
+    text = "<thinkingx>keep</thinkingx>Answer."
+    result = strip_tags(text)
+    assert result.tag_count == 0
+    assert "<thinkingx>keep</thinkingx>" in result.text
+
+
+def test_has_thinking_does_not_match_similar_tag_names():
+    assert has_thinking("<thinkingx>y</thinkingx>") is False
+
+
+def test_strip_tag_with_attributes():
+    text = '<thinking model="r1">internal</thinking>Visible.'
+    result = strip_tags(text)
+    assert result.tag_count == 1
+    assert "internal" not in result.text
+    assert "Visible." in result.text
+
+
+def test_strip_empty_tag_list_strips_nothing():
+    text = "<thinking>x</thinking>Hello"
+    result = strip_tags(text, tags=[])
+    assert result.tag_count == 0
+    assert result.text == text
