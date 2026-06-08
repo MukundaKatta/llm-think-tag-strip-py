@@ -31,6 +31,10 @@ def strip_tags(
     """
     Remove XML-style thinking/reasoning tags and their content from text.
 
+    Both paired tags (``<thinking>...</thinking>``) and self-closing tags
+    (``<thinking/>``) are removed. Self-closing tags carry no content, so they
+    do not contribute an entry to ``stripped`` or to ``tag_count``.
+
     Args:
         text: The raw LLM output.
         tags: List of tag names to strip. Defaults to common thinking tag names.
@@ -39,6 +43,9 @@ def strip_tags(
     Returns:
         StripResult with cleaned text and extracted thinking blocks.
 
+    Raises:
+        TypeError: If ``text`` is not a ``str``.
+
     Example::
 
         result = strip_tags("<thinking>Let me reason...</thinking>The answer is 42.")
@@ -46,6 +53,9 @@ def strip_tags(
         print(result.stripped)   # ["Let me reason..."]
         print(result.had_thinking)  # True
     """
+    if not isinstance(text, str):
+        raise TypeError(f"text must be a str, got {type(text).__name__}")
+
     if tags is None:
         tags = _DEFAULT_TAGS
 
@@ -64,6 +74,15 @@ def strip_tags(
         )
         stripped_blocks = [m.strip() for m in pattern.findall(cleaned)]
         cleaned = pattern.sub("", cleaned)
+
+        # Self-closing tags (e.g. ``<thinking/>``) carry no content but are
+        # still detected by ``has_thinking``. Remove them too so that ``strip``
+        # and ``has_thinking`` stay consistent.
+        self_closing = re.compile(
+            rf"<(?:{names})(?=[\s/>])[^>]*/\s*>",
+            re.IGNORECASE,
+        )
+        cleaned = self_closing.sub("", cleaned)
 
     if not keep_newlines:
         # Collapse multiple blank lines into at most one
@@ -89,7 +108,13 @@ def extract_thinking(text: str, tags: list[str] | None = None) -> list[str]:
 
 
 def has_thinking(text: str, tags: list[str] | None = None) -> bool:
-    """Return True if the text contains any thinking tags."""
+    """Return True if the text contains any thinking tags.
+
+    Raises:
+        TypeError: If ``text`` is not a ``str``.
+    """
+    if not isinstance(text, str):
+        raise TypeError(f"text must be a str, got {type(text).__name__}")
     if tags is None:
         tags = _DEFAULT_TAGS
     for tag in tags:
